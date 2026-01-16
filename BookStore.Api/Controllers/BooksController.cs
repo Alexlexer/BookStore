@@ -72,7 +72,8 @@ public class BooksController : ControllerBase
         {
             "title" => query.OrderBy(b => b.Title),
             "year" => query.OrderBy(b => b.PublicationYear),
-            _ => query.OrderBy(b => b.Id) // Default sort
+            "genre" => query.OrderBy(b => b.Genres),
+            _ => query.OrderBy(b => b.Id)
         };
 
         // 4. Projection (Map Entity -> DTO)
