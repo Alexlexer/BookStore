@@ -32,11 +32,14 @@ public class BookDbContext : DbContext
         // 3. Seed Initial Data (So the DB isn't empty)
         modelBuilder.Entity<Author>().HasData(
             new Author { Id = 1, FirstName = "Stephen", LastName = "King" },
-            new Author { Id = 2, FirstName = "Isaac", LastName = "Asimov" }
+            new Author { Id = 2, FirstName = "Isaac", LastName = "Asimov" },
+            new Author { Id = 3, FirstName = "Marguerite", LastName = "Duras" }
         );
 
         modelBuilder.Entity<Illustrator>().HasData(
-            new Illustrator { Id = 1, FirstName = "Gustave", LastName = "Doré" }
+            new Illustrator { Id = 1, FirstName = "Gustave", LastName = "Doré" },
+            new Illustrator { Id = 2, FirstName = "Norman", LastName = "Rockwell" },
+            new Illustrator { Id = 3, FirstName = "Beya", LastName = "Rebaï" }
         );
     }
 }
