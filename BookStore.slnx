@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/.github/" />
+  <Folder Name="/.github/workflows/">
+    <File Path="dotnet.yml" />
+  </Folder>
   <Project Path="BookStore.Api/BookStore.Api.csproj" />
   <Project Path="BookStore.Domain/BookStore.Domain.csproj" />
   <Project Path="BookStore.IntegrationTests/BookStore.IntegrationTests.csproj" />
