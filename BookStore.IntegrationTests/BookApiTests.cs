@@ -6,8 +6,9 @@ using BookStore.Domain.Entities;
 using BookStore.Domain.Enums;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions; // Required for RemoveAll
 using Xunit;
 
 namespace BookStore.IntegrationTests;
@@ -15,23 +16,28 @@ namespace BookStore.IntegrationTests;
 public class BookApiTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
-    private readonly string _testDbName;
 
     public BookApiTests(WebApplicationFactory<Program> factory)
     {
-        // Generate a unique database name to ensure test isolation
-        _testDbName = $"BookStore_Test_{Guid.NewGuid()}";
-
         _factory = factory.WithWebHostBuilder(builder =>
         {
-            // Replace the connection string with a Test LocalDB instance
-            builder.ConfigureAppConfiguration((context, config) =>
+            builder.ConfigureServices(services =>
             {
-                var testConnectionString = $"Server=(localdb)\\mssqllocaldb;Database={_testDbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+                // 1. THE NUCLEAR OPTION
+                // We must remove ALL database-related services to prevent 
+                // "Mixed Database Provider" errors and ensure we don't use SQL Server on Linux.
+                services.RemoveAll(typeof(DbContextOptions));
+                services.RemoveAll(typeof(DbContextOptions<BookDbContext>));
+                services.RemoveAll(typeof(BookDbContext));
 
-                config.AddInMemoryCollection(new Dictionary<string, string?>
+                // 2. Add In-Memory Database (Cross-Platform)
+                services.AddDbContext<BookDbContext>(options =>
                 {
-                    { "ConnectionStrings:DefaultConnection", testConnectionString }
+                    // Use a unique name to ensure isolation
+                    options.UseInMemoryDatabase($"IntegrationTestDb_{Guid.NewGuid()}");
+
+                    // Ignore transaction warnings (InMemory doesn't support transactions like SQL)
+                    options.ConfigureWarnings(x => x.Ignore(InMemoryEventId.TransactionIgnoredWarning));
                 });
             });
         });
@@ -50,25 +56,20 @@ public class BookApiTests : IClassFixture<WebApplicationFactory<Program>>
         {
             var db = scope.ServiceProvider.GetRequiredService<BookDbContext>();
 
-            // Create the real database schema
+            // Ensure DB is created
             db.Database.EnsureCreated();
 
-            // Clean up tables to ensure a fresh start
-            db.Books.ExecuteDelete();
-            db.Authors.ExecuteDelete();
-            db.Illustrators.ExecuteDelete();
-
-            // Create entities without explicit IDs (let SQL Server handle Identity)
+            // Create entities
+            // InMemory handles IDs automatically, just like SQL Server
             var author = new Author { FirstName = "Integration", LastName = "Tester" };
             var illustrator = new Illustrator { FirstName = "Pixel", LastName = "Artist" };
 
             db.Authors.Add(author);
             db.Illustrators.Add(illustrator);
 
-            // Save to DB to generate IDs
             await db.SaveChangesAsync();
 
-            // Capture the IDs assigned by SQL Server
+            // Capture the generated IDs
             authorId = author.Id;
             illustratorId = illustrator.Id;
         }
@@ -83,26 +84,14 @@ public class BookApiTests : IClassFixture<WebApplicationFactory<Program>>
             Genres: new List<Genre> { Genre.ScienceFiction }
         );
 
-        try
-        {
-            // 3. Act: Perform the HTTP POST
-            var response = await client.PostAsJsonAsync("/api/books", dto);
+        // 3. Act: Perform the HTTP POST
+        var response = await client.PostAsJsonAsync("/api/books", dto);
 
-            // 4. Assert
-            response.EnsureSuccessStatusCode();
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        // 4. Assert
+        response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-            var result = await response.Content.ReadFromJsonAsync<dynamic>();
-            Assert.NotNull(result);
-        }
-        finally
-        {
-            // Clean up: Delete the test database after execution
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var db = scope.ServiceProvider.GetRequiredService<BookDbContext>();
-                db.Database.EnsureDeleted();
-            }
-        }
+        var result = await response.Content.ReadFromJsonAsync<dynamic>();
+        Assert.NotNull(result);
     }
 }
