@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="BookStore.Api/BookStore.Api.csproj" />
+  <Project Path="BookStore.Domain/BookStore.Domain.csproj" />
+  <Project Path="BookStore.IntegrationTests/BookStore.IntegrationTests.csproj" />
+  <Project Path="BookStore.UnitTests/BookStore.UnitTests.csproj" />
+</Solution>
